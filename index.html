@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>中信金控月度損益</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Barlow:wght@500;600;700&display=swap">
+<style>
+/* Layout: brand header band with filters → KPI row for the chosen company → two charts side by side → three-company comparison table */
+:root {
+  --brand: #00857c;        /* 中信綠 */
+  --brand-deep: #005f58;
+  --brand-soft: #d9efec;
+  --red: #d71f30;          /* 中信紅 */
+  --bg: #f4f7f6;
+  --surface: #ffffff;
+  --fg: #1d2a28;
+  --muted: #5f706d;
+  --line: #dde6e4;
+  --prev: #a8bcb8;         /* 去年同期 */
+  --up: #00857c;
+  --down: #d71f30;
+  --font-body: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+  --font-num: "Barlow", "Noto Sans TC", "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --brand: #2bb3a6; --brand-deep: #0b3d39; --brand-soft: #123a36; --red: #ff6170;
+    --bg: #0f1716; --surface: #172221; --fg: #e4eeec; --muted: #93a7a3; --line: #263533;
+    --prev: #50655f; --up: #3cc4b6; --down: #ff6170; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --brand: #2bb3a6; --brand-deep: #0b3d39; --brand-soft: #123a36; --red: #ff6170;
+  --bg: #0f1716; --surface: #172221; --fg: #e4eeec; --muted: #93a7a3; --line: #263533;
+  --prev: #50655f; --up: #3cc4b6; --down: #ff6170; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+header.band { background: var(--brand-deep); color: #fff; padding-block: 22px 26px; padding-inline: 16px; border-bottom: 4px solid var(--red); }
+.wrap { max-width: 1180px; margin: 0 auto; }
+main.wrap { padding-inline: 16px; padding-block: 24px 48px; display: grid; gap: 24px; }
+.band-row { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: flex-end; justify-content: space-between; }
+.band h1 { margin: 0; font-size: 1.6rem; font-weight: 700; letter-spacing: .02em; text-wrap: balance; }
+.band .sub { margin: 4px 0 0; font-size: .85rem; opacity: .82; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: .72rem; letter-spacing: .08em; opacity: .85; }
+select { font: 600 1rem var(--font-body); color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.35); border-radius: 6px; padding: 7px 34px 7px 12px; appearance: none; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, #fff 50%), linear-gradient(135deg, #fff 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+select option { color: #1d2a28; background: #fff; }
+select:focus-visible, button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 4px; }
+.seg button { font: 500 .9rem var(--font-body); border: 0; background: transparent; color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+.seg button:hover:not([aria-pressed="true"]) { color: var(--fg); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.status { font-size: .8rem; color: var(--muted); }
+.status b { color: var(--fg); font-weight: 500; }
+
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.kpi .lbl { font-size: .8rem; color: var(--muted); }
+.kpi .val { font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
+.kpi .prev { font-size: .8rem; color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 4px; font: 600 .78rem var(--font-num); padding: 2px 8px; border-radius: 99px; justify-self: start; }
+.chip.up { color: var(--up); background: color-mix(in srgb, var(--up) 14%, transparent); }
+.chip.down { color: var(--down); background: color-mix(in srgb, var(--down) 14%, transparent); }
+.chip.na { color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); }
+
+.charts { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; display: grid; gap: 10px; }
+.panel h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+.panel-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.legend { display: flex; gap: 14px; font-size: .78rem; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.chart-box { position: relative; height: 290px; }
+.seg.small button { font-size: .8rem; padding: 4px 10px; }
+
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; min-width: 640px; }
+th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-size: .75rem; font-weight: 500; color: var(--muted); letter-spacing: .04em; }
+tbody tr.co td { background: var(--brand-soft); font-weight: 700; color: var(--fg); }
+tbody td.metric { color: var(--muted); padding-left: 24px; }
+.neg { color: var(--down); }
+.note { font-size: .78rem; color: var(--muted); margin: 0; }
+
+@media (max-width: 900px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .charts { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 420px) { .kpi .val { font-size: 1.4rem; } }
+body { margin: 0; }
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="wrap band-row">
+    <div>
+      <h1>中信金控 月度損益速覽</h1>
+      <p class="sub">單位：新台幣百萬元（EPS 為元）・資料來源 Google Sheets</p>
+    </div>
+    <div class="filters">
+      <div class="field"><label for="selYear">年份</label><select id="selYear"></select></div>
+      <div class="field"><label for="selMonth">月份</label><select id="selMonth"></select></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="toolbar">
+    <div class="seg" id="coSeg" role="group" aria-label="公司"></div>
+    <div class="status" id="status">載入中…</div>
+  </div>
+
+  <section class="kpis" id="kpis" aria-label="單月重點"></section>
+
+  <section class="charts">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="barTitle">每月損益</h2>
+        <div class="seg small" id="metricSeg" role="group" aria-label="指標"></div>
+      </div>
+      <div class="legend"><span><i style="background:var(--brand)"></i><span id="lgCur">今年</span></span><span><i style="background:var(--prev)"></i><span id="lgPrev">去年</span></span></div>
+      <div class="chart-box"><canvas id="barChart" aria-label="每月比較長條圖"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>累積稅後損益走勢</h2></div>
+      <div class="legend"><span><i style="background:var(--brand)"></i><span id="lgCur2">今年</span></span><span><i style="background:var(--prev)"></i><span id="lgPrev2">去年</span></span></div>
+      <div class="chart-box"><canvas id="lineChart" aria-label="累積稅後損益折線圖"></canvas></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2 id="tblTitle">三家公司 本月 vs 去年同期</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>公司／項目</th><th id="thCur">本期</th><th id="thPrev">去年同期</th><th>增減</th><th>增減率</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="note">增減率以去年同期絕對值為基準；去年為虧損今年為獲利標示「轉盈」，反之「轉虧」。</p>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const SHEET_ID = "17AhYLj7rfqG1l-vFlm_PBYYC3U_Z7izvAUW4ge2Gozo";
+const LIVE_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
+
+// 快照：無法連線 Google Sheets 時使用（2026/10/02 擷取）
+const SNAPSHOT = `年份,月份,年月,公司,本月營收,本月稅前損益,本月稅後損益,累積營收,累積稅前損益,累積稅後損益,累積EPS(元)
+2025,1,2025/01,中信金控,"21,736.3","8,582.1","6,827.1","21,736.3","8,582.1","6,827.1",0.35
+2025,1,2025/01,中信銀行,"14,662.2","5,350.6","4,024.2","14,662.2","5,350.6","4,024.2",0.25
+2025,1,2025/01,台灣人壽,"6,597.3","2,842.2","2,465.6","6,597.3","2,842.2","2,465.6",0.40
+2025,2,2025/02,中信金控,"20,663.6","6,142.6","4,911.2","42,399.9","14,724.7","11,738.2",0.60
+2025,2,2025/02,中信銀行,"13,701.5","5,344.5","4,233.7","28,363.7","10,695.1","8,257.9",0.52
+2025,2,2025/02,台灣人壽,"6,290.2",569.8,466.9,"12,887.5","3,412.1","2,932.5",0.47
+2025,3,2025/03,中信金控,"19,051.9","9,846.8","8,170.1","61,451.8","24,571.4","19,908.3",1.02
+2025,3,2025/03,中信銀行,"13,906.0","6,275.3","5,185.4","42,269.7","16,970.4","13,443.3",0.85
+2025,3,2025/03,台灣人壽,"4,389.0","3,188.8","2,666.1","17,276.6","6,600.9","5,598.6",0.90
+2025,4,2025/04,中信金控,"10,151.4","2,190.2","2,652.6","71,603.2","26,761.7","22,560.9",1.16
+2025,4,2025/04,中信銀行,"13,433.0","5,355.2","4,450.0","55,702.7","22,325.6","17,893.4",1.13
+2025,4,2025/04,台灣人壽,"-3,363.2","-2,644.5","-1,321.8","13,913.3","3,956.4","4,276.8",0.69
+2025,5,2025/05,中信金控,"10,914.5","2,174.0","2,114.9","82,517.7","28,935.7","24,675.8",1.27
+2025,5,2025/05,中信銀行,"14,067.7","6,284.4","5,048.5","69,770.3","28,610.0","22,941.9",1.45
+2025,5,2025/05,台灣人壽,"-3,540.5","-3,944.1","-2,829.0","10,372.8",12.3,"1,447.7",0.23
+2025,6,2025/06,中信金控,"26,892.7","12,507.0","11,165.0","109,410.4","41,442.8","35,840.7",1.78
+2025,6,2025/06,中信銀行,"14,398.8","5,913.9","4,820.6","84,169.2","34,523.9","27,762.5",1.76
+2025,6,2025/06,台灣人壽,"11,646.4","6,371.1","5,768.7","22,019.3","6,383.4","7,216.4",1.16
+2025,7,2025/07,中信金控,"10,546.9","7,371.2","5,839.0","119,957.2","48,814.0","41,679.7",2.08
+2025,7,2025/07,中信銀行,"14,115.3","5,395.8","4,417.3","98,284.4","39,919.7","32,179.9",2.04
+2025,7,2025/07,台灣人壽,"-4,402.1","1,768.7","1,741.7","17,617.2","8,152.1","8,958.2",1.44
+2025,8,2025/08,中信金控,"25,029.0","8,960.0","7,901.0","144,986.2","57,774.0","49,580.7",2.49
+2025,8,2025/08,中信銀行,"14,575.5","6,269.2","4,995.4","112,859.9","46,188.9","37,175.3",2.17
+2025,8,2025/08,台灣人壽,"9,299.0","2,250.2","2,381.8","26,916.2","10,402.3","11,340.0",1.82
+2025,9,2025/09,中信金控,"28,972.7","12,189.8","11,178.6","173,958.9","69,963.8","60,759.3",3.06
+2025,9,2025/09,中信銀行,"14,727.3","6,206.0","4,882.0","127,587.2","52,394.9","42,057.3",2.46
+2025,9,2025/09,台灣人壽,"13,707.5","6,116.9","6,400.3","40,623.7","16,519.2","17,740.3",2.85
+2025,10,2025/10,中信金控,"24,208.4","7,715.3","6,583.8","198,167.3","77,679.1","67,343.2",3.40
+2025,10,2025/10,中信銀行,"15,197.1","5,784.5","4,735.1","142,784.3","58,179.4","46,792.4",2.73
+2025,10,2025/10,台灣人壽,"8,369.3","2,014.4","1,917.7","48,993.1","18,533.6","19,658.0",3.16
+2025,11,2025/11,中信金控,"23,881.8","8,367.8","7,008.5","222,049.1","86,046.8","74,351.6",3.76
+2025,11,2025/11,中信銀行,"14,625.8","6,331.2","5,251.3","157,410.1","64,510.6","52,043.7",3.04
+2025,11,2025/11,台灣人壽,"8,306.3","1,730.4","1,527.7","57,299.4","20,264.0","21,185.7",3.40
+2025,12,2025/12,中信金控,"22,845.5","6,173.5","6,267.6","244,894.7","92,220.3","80,619.2",4.08
+2025,12,2025/12,中信銀行,"15,320.3","6,276.9","5,254.5","172,730.4","70,787.5","57,298.1",3.35
+2025,12,2025/12,台灣人壽,"6,585.4",-379.2,-336.1,"63,884.8","19,884.8","20,849.6",3.35
+2026,1,2026/01,中信金控,"25,856.6","9,807.0","7,367.1","25,856.6","9,807.0","7,367.1",0.38
+2026,1,2026/01,中信銀行,"17,685.5","7,102.4","5,891.5","17,685.5","7,102.4","5,891.5",0.34
+2026,1,2026/01,台灣人壽,"10,581.5","5,195.0","4,011.1","10,581.5","5,195.0","4,011.1",0.64
+2026,2,2026/02,中信金控,"20,907.8","9,407.3","8,159.0","46,764.5","19,214.3","15,526.1",0.80
+2026,2,2026/02,中信銀行,"13,776.0","5,428.1","4,027.4","31,461.6","12,530.5","9,918.9",0.58
+2026,2,2026/02,台灣人壽,"6,635.5","3,777.5","3,196.0","17,217.0","8,972.4","7,207.1",1.16
+2026,3,2026/03,中信金控,"13,095.0","9,085.0","7,577.5","59,859.5","28,299.4","23,103.6",1.18
+2026,3,2026/03,中信銀行,"16,542.8","8,022.4","6,666.8","48,004.4","20,553.0","16,585.7",0.97
+2026,3,2026/03,台灣人壽,"-4,088.1",651.6,545.0,"13,128.9","9,624.0","7,752.1",1.24
+2026,4,2026/04,中信金控,"19,692.0","6,576.6","5,395.2","79,551.4","34,876.0","28,498.8",1.46
+2026,4,2026/04,中信銀行,"15,435.9","5,419.8","4,318.8","63,440.3","25,972.7","20,904.5",1.22
+2026,4,2026/04,台灣人壽,"3,092.6",795.7,646.5,"16,221.5","10,419.7","8,398.6",1.35
+2026,5,2026/05,中信金控,"19,217.9","7,001.9","6,291.1","98,769.4","41,877.9","34,789.9",1.78
+2026,5,2026/05,中信銀行,"16,953.2","7,321.5","6,040.4","80,393.5","33,294.2","26,944.9",1.57
+2026,5,2026/05,台灣人壽,"1,562.6",-230.0,282.8,"17,784.2","10,189.7","8,681.4",1.39
+2026,6,2026/06,中信金控,"19,828.1","7,338.3","4,747.4","118,597.5","49,216.2","39,537.3",1.96
+2026,6,2026/06,中信銀行,"15,456.3","5,219.8","4,233.2","95,849.9","38,514.1","31,178.0",1.82
+2026,6,2026/06,台灣人壽,"3,491.2","1,924.3","1,595.0","21,275.4","12,114.0","10,276.4",1.65
+2026,7,2026/07,中信金控,"18,046.3","5,945.5","4,410.4","136,643.8","55,161.7","43,947.7",2.19
+2026,7,2026/07,中信銀行,"15,191.3","5,678.3","4,507.2","111,041.2","44,192.4","35,685.3",2.08
+2026,7,2026/07,台灣人壽,"2,968.1",656.9,301.1,"24,243.6","12,770.9","10,577.5",1.70`;
+
+const FIELDS = [
+  { key: "本月營收", label: "本月營收" },
+  { key: "本月稅前損益", label: "本月稅前損益" },
+  { key: "本月稅後損益", label: "本月稅後損益" },
+  { key: "累積稅後損益", label: "累積稅後損益" },
+  { key: "累積EPS(元)", label: "累積 EPS（元）", eps: true },
+];
+const TABLE_FIELDS = ["本月營收", "本月稅前損益", "本月稅後損益", "累積營收", "累積稅前損益", "累積稅後損益", "累積EPS(元)"];
+const BAR_METRICS = [["本月營收", "營收"], ["本月稅前損益", "稅前"], ["本月稅後損益", "稅後"]];
+
+const state = { rows: [], year: null, month: null, company: "中信金控", metric: "本月稅後損益" };
+let barChart, lineChart;
+
+function parseCSV(text) {
+  const out = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') q = false;
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); out.push(row); row = []; cell = "";
+    } else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); out.push(row); }
+  return out.filter(r => r.some(v => v.trim() !== ""));
+}
+function toRows(text) {
+  const [head, ...body] = parseCSV(text);
+  const h = head.map(s => s.trim());
+  return body.map(r => {
+    const o = {};
+    h.forEach((k, i) => {
+      const raw = (r[i] ?? "").trim();
+      if (k === "公司" || k === "年月") o[k] = raw;
+      else { const n = parseFloat(raw.replace(/,/g, "")); o[k] = isNaN(n) ? null : n; }
+    });
+    return o;
+  }).filter(o => o["年份"] && o["月份"] && o["公司"]);
+}
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (v, eps) => v == null ? "—" : v.toLocaleString("zh-TW", { minimumFractionDigits: eps ? 2 : 1, maximumFractionDigits: eps ? 2 : 1 });
+const find = (y, m, co = state.company) => state.rows.find(r => r["年份"] === y && r["月份"] === m && r["公司"] === co);
+
+function change(cur, prev) {
+  if (cur == null || prev == null) return { cls: "na", text: "無去年資料", pct: "—", diff: null };
+  const diff = cur - prev;
+  if (prev < 0 && cur >= 0) return { cls: "up", text: "轉盈", pct: "轉盈", diff };
+  if (prev > 0 && cur < 0) return { cls: "down", text: "轉虧", pct: "轉虧", diff };
+  if (prev === 0) return { cls: "na", text: "—", pct: "—", diff };
+  const p = diff / Math.abs(prev) * 100;
+  const s = (p >= 0 ? "▲ " : "▼ ") + Math.abs(p).toFixed(1) + "%";
+  return { cls: p >= 0 ? "up" : "down", text: s, pct: s, diff };
+}
+
+function fillSelects() {
+  const years = [...new Set(state.rows.map(r => r["年份"]))].sort((a, b) => a - b);
+  const ys = document.getElementById("selYear");
+  ys.innerHTML = years.map(y => `<option value="${y}">${y} 年</option>`).join("");
+  if (!years.includes(state.year)) state.year = years[years.length - 1];
+  ys.value = state.year;
+  fillMonths();
+}
+function fillMonths() {
+  const months = [...new Set(state.rows.filter(r => r["年份"] === state.year).map(r => r["月份"]))].sort((a, b) => a - b);
+  const ms = document.getElementById("selMonth");
+  ms.innerHTML = months.map(m => `<option value="${m}">${m} 月</option>`).join("");
+  if (!months.includes(state.month)) state.month = months[months.length - 1];
+  ms.value = state.month;
+}
+function fillCompanies() {
+  const cos = [...new Set(state.rows.map(r => r["公司"]))];
+  if (!cos.includes(state.company)) state.company = cos[0];
+  const seg = document.getElementById("coSeg");
+  seg.innerHTML = cos.map(c => `<button type="button" data-co="${c}" aria-pressed="${c === state.company}">${c}</button>`).join("");
+  seg.onclick = e => { const b = e.target.closest("button"); if (!b) return; state.company = b.dataset.co; render(); };
+  const ms = document.getElementById("metricSeg");
+  ms.innerHTML = BAR_METRICS.map(([k, l]) => `<button type="button" data-m="${k}" aria-pressed="${k === state.metric}">${l}</button>`).join("");
+  ms.onclick = e => { const b = e.target.closest("button"); if (!b) return; state.metric = b.dataset.m; render(); };
+}
+
+function renderKPIs() {
+  const cur = find(state.year, state.month), prev = find(state.year - 1, state.month);
+  document.getElementById("kpis").innerHTML = FIELDS.map(f => {
+    const c = cur?.[f.key], p = prev?.[f.key], ch = change(c, p);
+    return `<div class="kpi">
+      <div class="lbl">${f.label}</div>
+      <div class="val num${c < 0 ? " neg" : ""}">${fmt(c, f.eps)}</div>
+      <span class="chip ${ch.cls}">${ch.text}</span>
+      <div class="prev">去年同期 <span class="num">${fmt(p, f.eps)}</span></div>
+    </div>`;
+  }).join("");
+}
+
+function renderTable() {
+  const y = state.year, m = state.month;
+  document.getElementById("tblTitle").textContent = `三家公司 ${y}/${String(m).padStart(2, "0")} vs 去年同期`;
+  document.getElementById("thCur").textContent = `${y}/${String(m).padStart(2, "0")}`;
+  document.getElementById("thPrev").textContent = `${y - 1}/${String(m).padStart(2, "0")}`;
+  const cos = [...new Set(state.rows.map(r => r["公司"]))];
+  document.getElementById("tbody").innerHTML = cos.map(co => {
+    const cur = find(y, m, co), prev = find(y - 1, m, co);
+    return `<tr class="co"><td colspan="5">${co}</td></tr>` + TABLE_FIELDS.map(k => {
+      const eps = k.includes("EPS"), c = cur?.[k], p = prev?.[k], ch = change(c, p);
+      const d = ch.diff;
+      return `<tr><td class="metric">${k.replace("(元)", "（元）")}</td>
+        <td class="num${c < 0 ? " neg" : ""}">${fmt(c, eps)}</td>
+        <td class="num${p < 0 ? " neg" : ""}">${fmt(p, eps)}</td>
+        <td class="num${d < 0 ? " neg" : ""}">${d == null ? "—" : (d > 0 ? "+" : "") + fmt(d, eps)}</td>
+        <td><span class="chip ${ch.cls}">${ch.pct}</span></td></tr>`;
+    }).join("");
+  }).join("");
+}
+
+function series(year, key) {
+  return Array.from({ length: 12 }, (_, i) => find(year, i + 1)?.[key] ?? null);
+}
+
+function renderCharts() {
+  const brand = css("--brand"), prevC = css("--prev"), muted = css("--muted"), line = css("--line"), fg = css("--fg");
+  const font = { family: css("--font-num") || "sans-serif", size: 12 };
+  const labels = Array.from({ length: 12 }, (_, i) => `${i + 1}月`);
+  const y = state.year, m = state.month;
+  const metricName = BAR_METRICS.find(x => x[0] === state.metric)[1];
+  document.getElementById("barTitle").textContent = `${state.company} 每月${metricName === "營收" ? "營收" : metricName + "損益"}`;
+  ["lgCur", "lgCur2"].forEach(id => document.getElementById(id).textContent = `${y} 年`);
+  ["lgPrev", "lgPrev2"].forEach(id => document.getElementById(id).textContent = `${y - 1} 年`);
+
+  const fade = c => c + "66";
+  const curColors = labels.map((_, i) => i + 1 === m ? brand : fade(brand.length === 7 ? brand : "#00857c"));
+  const prevColors = labels.map((_, i) => i + 1 === m ? prevC : fade(prevC.length === 7 ? prevC : "#a8bcb8"));
+
+  const common = {
+    responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: c => `${c.dataset.label}：${fmt(c.parsed.y)}` } },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: muted, font }, border: { color: line } },
+      y: { grid: { color: line }, ticks: { color: muted, font, callback: v => v.toLocaleString("zh-TW") }, border: { display: false } },
+    },
+  };
+
+  const barData = {
+    labels,
+    datasets: [
+      { label: `${y - 1} 年`, data: series(y - 1, state.metric), backgroundColor: prevColors, borderRadius: 3, maxBarThickness: 18 },
+      { label: `${y} 年`, data: series(y, state.metric), backgroundColor: curColors, borderRadius: 3, maxBarThickness: 18 },
+    ],
+  };
+  if (barChart) { barChart.data = barData; barChart.options = common; barChart.update(); }
+  else barChart = new Chart(document.getElementById("barChart"), { type: "bar", data: barData, options: common });
+
+  const lineData = {
+    labels,
+    datasets: [
+      { label: `${y - 1} 年`, data: series(y - 1, "累積稅後損益"), borderColor: prevC, backgroundColor: prevC, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: .25, spanGaps: false },
+      { label: `${y} 年`, data: series(y, "累積稅後損益"), borderColor: brand, backgroundColor: brand, borderWidth: 2.5, tension: .25,
+        pointRadius: labels.map((_, i) => i + 1 === m ? 5 : 0), pointHoverRadius: 5, pointBackgroundColor: brand },
+    ],
+  };
+  const lineOpts = { ...common, scales: { x: { ...common.scales.x }, y: { ...common.scales.y } } };
+  if (lineChart) { lineChart.data = lineData; lineChart.options = lineOpts; lineChart.update(); }
+  else lineChart = new Chart(document.getElementById("lineChart"), { type: "line", data: lineData, options: lineOpts });
+}
+
+function render() {
+  document.querySelectorAll("#coSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.co === state.company));
+  document.querySelectorAll("#metricSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === state.metric));
+  renderKPIs(); renderTable(); renderCharts();
+}
+
+function boot(text, sourceLabel) {
+  state.rows = toRows(text);
+  fillSelects(); fillCompanies(); render();
+  document.getElementById("status").innerHTML = sourceLabel;
+}
+
+document.getElementById("selYear").addEventListener("change", e => { state.year = +e.target.value; fillMonths(); render(); });
+document.getElementById("selMonth").addEventListener("change", e => { state.month = +e.target.value; render(); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => state.rows.length && renderCharts());
+new MutationObserver(() => state.rows.length && renderCharts()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+(async () => {
+  try {
+    const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(`${LIVE_URL}&_=${Date.now()}`, { signal: ctrl.signal, cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    const text = await res.text();
+    if (!text.includes("公司")) throw new Error("format");
+    boot(text, `<b>即時資料</b>・${new Date().toLocaleString("zh-TW", { hour12: false })} 從 Google Sheets 讀取`);
+  } catch {
+    boot(SNAPSHOT, `<b>資料快照</b>・2026/10/02 自 Google Sheets 擷取`);
+  }
+})();
+</script>
+
+</body>
+</html>
