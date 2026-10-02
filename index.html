@@ -98,6 +98,15 @@ tbody td.metric { color: var(--muted); padding-left: 24px; }
 }
 @media (max-width: 420px) { .kpi .val { font-size: 1.4rem; } }
 body { margin: 0; }
+
+.team { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.person { border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 12px; align-items: center; }
+.avatar { grid-row: span 2; width: 44px; height: 44px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; font: 700 1.1rem var(--font-num); }
+.person .name { font-weight: 700; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.person .meta { font-size: .78rem; color: var(--muted); }
+.person .bio { grid-column: 1 / -1; margin: 6px 0 0; font-size: .88rem; overflow-wrap: anywhere; }
+.region { font: 500 .72rem var(--font-body); padding: 1px 8px; border-radius: 99px; background: var(--brand); color: #fff; }
+.empty { color: var(--muted); font-size: .9rem; margin: 0; }
 </style>
 </head>
 <body>
@@ -148,6 +157,14 @@ body { margin: 0; }
       </table>
     </div>
     <p class="note">增減率以去年同期絕對值為基準；去年為虧損今年為獲利標示「轉盈」，反之「轉虧」。</p>
+  </section>
+
+  <section class="panel" aria-labelledby="teamTitle">
+    <div class="panel-head">
+      <h2 id="teamTitle">業務團隊</h2>
+      <div class="seg small" id="regionSeg" role="group" aria-label="地區"></div>
+    </div>
+    <div class="team" id="team"><p class="empty">載入中…</p></div>
   </section>
 </main>
 
@@ -405,6 +422,53 @@ document.getElementById("selYear").addEventListener("change", e => { state.year 
 document.getElementById("selMonth").addEventListener("change", e => { state.month = +e.target.value; render(); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => state.rows.length && renderCharts());
 new MutationObserver(() => state.rows.length && renderCharts()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// ---- 業務團隊（分頁「業務名稱」）----
+const TEAM_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent("業務名稱")}`;
+const TEAM_SNAPSHOT = `地區,業務名稱,性別,個人介紹
+北,Vicky,f,hi
+中,Parren,f,ya
+南,Emily,f,wow`;
+const REGION_ORDER = ["北", "中", "南", "東"];
+const GENDER = { f: "女", m: "男", "女": "女", "男": "男" };
+const team = { people: [], region: "全部" };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const regionRank = r => { const i = REGION_ORDER.indexOf(r); return i < 0 ? 99 : i; };
+
+function loadTeam(text) {
+  const [head, ...body] = parseCSV(text);
+  const h = head.map(s => s.trim());
+  team.people = body.map(r => Object.fromEntries(h.map((k, i) => [k, (r[i] ?? "").trim()]))).filter(p => p["業務名稱"]);
+  const regions = [...new Set(team.people.map(p => p["地區"]).filter(Boolean))].sort((a, b) => regionRank(a) - regionRank(b));
+  const seg = document.getElementById("regionSeg");
+  seg.innerHTML = ["全部", ...regions].map(r => `<button type="button" data-r="${esc(r)}" aria-pressed="${r === team.region}">${esc(r === "全部" ? r : r + "區")}</button>`).join("");
+  seg.onclick = e => { const b = e.target.closest("button"); if (!b) return; team.region = b.dataset.r; renderTeam(); };
+  renderTeam();
+}
+function renderTeam() {
+  document.querySelectorAll("#regionSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.r === team.region));
+  const list = team.people.filter(p => team.region === "全部" || p["地區"] === team.region)
+    .sort((a, b) => regionRank(a["地區"]) - regionRank(b["地區"]));
+  document.getElementById("teamTitle").textContent = `業務團隊（${list.length} 人）`;
+  document.getElementById("team").innerHTML = list.length ? list.map(p => {
+    const name = p["業務名稱"], g = GENDER[(p["性別"] || "").toLowerCase()] || p["性別"];
+    return `<article class="person">
+      <div class="avatar" aria-hidden="true">${esc(name.slice(0, 1).toUpperCase())}</div>
+      <div class="name">${esc(name)}${p["地區"] ? `<span class="region">${esc(p["地區"])}區</span>` : ""}</div>
+      <div class="meta">${g ? "性別：" + esc(g) : ""}</div>
+      ${p["個人介紹"] ? `<p class="bio">${esc(p["個人介紹"])}</p>` : ""}
+    </article>`;
+  }).join("") : `<p class="empty">這個地區目前沒有業務資料。</p>`;
+}
+(async () => {
+  try {
+    const res = await fetch(`${TEAM_URL}&_=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    const text = await res.text();
+    if (!text.includes("業務名稱")) throw new Error("format");
+    loadTeam(text);
+  } catch { loadTeam(TEAM_SNAPSHOT); }
+})();
 
 (async () => {
   try {
